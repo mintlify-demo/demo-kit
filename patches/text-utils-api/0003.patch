@@ -1,0 +1,105 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DeweyMarco <marco@mintlify.com>
+Date: Tue, 27 Oct 2026 11:33:32 -0700
+Subject: [PATCH 3/3] feat: add reading_time_minutes to /word-count
+
+Estimated at 200 words per minute, rounded up. Regenerated
+docs/openapi.json.
+---
+ main.py            | 13 +++++++++++--
+ tests/test_main.py |  9 +++++++--
+ 2 files changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/main.py b/main.py
+index 8100015..9ed5c45 100644
+--- a/main.py
++++ b/main.py
+@@ -2,7 +2,7 @@
+ 
+ Five endpoints, all `POST` with a JSON body containing `text`:
+   /reverse     -> the text backwards
+-  /word-count  -> words, characters, lines, unique words
++  /word-count  -> words, characters, lines, unique words, reading time
+   /palindrome  -> is the text a palindrome?
+   /slugify     -> a URL-friendly slug
+   /word-frequency -> the most common words and how often they appear
+@@ -13,6 +13,7 @@ so Mintlify can show ready-to-run examples on every endpoint page.
+ Run it:  uvicorn main:app --reload
+ """
+ import json
++import math
+ import re
+ from collections import Counter
+ import unicodedata
+@@ -30,6 +31,9 @@ def reverse_text(text: str) -> str:
+     return text[::-1]
+ 
+ 
++WORDS_PER_MINUTE = 200
++
++
+ def count_words(text: str) -> dict:
+     words = re.findall(r"[\w'-]+", text.lower())
+     return {
+@@ -37,6 +41,8 @@ def count_words(text: str) -> dict:
+         "unique_words": len(set(words)),
+         "characters": len(text),
+         "lines": len(text.splitlines()) if text else 0,
++        # 200 words per minute, rounded up; empty text takes 0 minutes.
++        "reading_time_minutes": math.ceil(len(words) / WORDS_PER_MINUTE),
+     }
+ 
+ 
+@@ -135,6 +141,9 @@ class WordCountResponse(BaseModel):
+     unique_words: int = Field(..., description="Number of different words (case-insensitive).", examples=[4])
+     characters: int = Field(..., description="Total characters, including spaces and punctuation.", examples=[24])
+     lines: int = Field(..., description="Number of lines.", examples=[1])
++    reading_time_minutes: int = Field(
++        ..., description="Estimated reading time at 200 words per minute, rounded up.", examples=[1]
++    )
+ 
+ 
+ class PalindromeRequest(TextRequest):
+@@ -215,7 +224,7 @@ def reverse(body: TextRequest) -> ReverseResponse:
+     openapi_extra={"x-codeSamples": code_samples("/word-count", {"text": "to be or not to be"})},
+ )
+ def word_count(body: TextRequest) -> WordCountResponse:
+-    """Count words, unique words, characters and lines.
++    """Count words, unique words, characters and lines, and estimate reading time.
+ 
+     Words are runs of letters, digits, apostrophes and hyphens. Comparison
+     for `unique_words` ignores case.
+diff --git a/tests/test_main.py b/tests/test_main.py
+index d9b607d..bbd1543 100644
+--- a/tests/test_main.py
++++ b/tests/test_main.py
+@@ -21,7 +21,7 @@ def test_reverse_requires_text():
+ 
+ def test_word_count():
+     r = client.post("/word-count", json={"text": "to be or not to be"})
+-    assert r.json() == {"words": 6, "unique_words": 4, "characters": 18, "lines": 1}
++    assert r.json() == {"words": 6, "unique_words": 4, "characters": 18, "lines": 1, "reading_time_minutes": 1}
+ 
+ 
+ def test_word_count_is_case_insensitive_and_counts_lines():
+@@ -32,7 +32,7 @@ def test_word_count_is_case_insensitive_and_counts_lines():
+ 
+ def test_word_count_empty():
+     r = client.post("/word-count", json={"text": ""})
+-    assert r.json() == {"words": 0, "unique_words": 0, "characters": 0, "lines": 0}
++    assert r.json() == {"words": 0, "unique_words": 0, "characters": 0, "lines": 0, "reading_time_minutes": 0}
+ 
+ 
+ def test_palindrome_true_ignoring_punctuation():
+@@ -83,3 +83,8 @@ def test_word_frequency():
+ def test_word_frequency_min_length():
+     r = client.post("/word-frequency", json={"text": "the cat and the hat", "min_length": 4})
+     assert r.json() == {"total_words": 0, "words": []}
++
++
++def test_reading_time_rounds_up():
++    r = client.post("/word-count", json={"text": "word " * 401})
++    assert r.json()["reading_time_minutes"] == 3
+-- 
+2.47.3
+

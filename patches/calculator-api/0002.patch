@@ -1,0 +1,89 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DeweyMarco <marco@mintlify.com>
+Date: Tue, 27 Oct 2026 11:31:51 -0700
+Subject: [PATCH 2/3] feat(v2): add POST /v2/sqrt endpoint
+
+Square root with optional rounding precision; negative input is a 422.
+---
+ main.py            | 30 ++++++++++++++++++++++++++++++
+ tests/test_main.py | 15 +++++++++++++++
+ 2 files changed, 45 insertions(+)
+
+diff --git a/main.py b/main.py
+index 102da21..c6f7c12 100644
+--- a/main.py
++++ b/main.py
+@@ -7,6 +7,7 @@ It also tells a small versioning story:
+ 
+ Run it:  uvicorn main:app --reload
+ """
++import math
+ from enum import Enum
+ 
+ from fastapi import FastAPI, HTTPException
+@@ -109,6 +110,19 @@ class CalculateResponse(Result):
+     operands: list[float] = Field(..., description="The numbers that were used.", examples=[[10, 3, 2]])
+ 
+ 
++class SqrtRequest(BaseModel):
++    """A single number to take the square root of (v2)."""
++
++    number: float = Field(..., ge=0, description="The number. Must be zero or positive.", examples=[144])
++    precision: int = Field(
++        6, ge=0, le=15, description="How many decimal places to round the answer to.", examples=[2]
++    )
++
++
++class SqrtResponse(Result):
++    number: float = Field(..., description="The number you sent.", examples=[144])
++
++
+ class ErrorResponse(BaseModel):
+     detail: str = Field(..., description="What went wrong.", examples=["Cannot divide by zero"])
+ 
+@@ -202,3 +216,19 @@ def v2_calculate(body: CalculateRequest) -> CalculateResponse:
+     for number in body.operands[1:]:
+         total = fn(total, number)
+     return CalculateResponse(result=total, operation=body.operation, operands=body.operands)
++
++
++@app.post(
++    "/v2/sqrt",
++    tags=["v2"],
++    operation_id="v2Sqrt",
++    summary="Square root of a number",
++    response_model=SqrtResponse,
++)
++def v2_sqrt(body: SqrtRequest) -> SqrtResponse:
++    """Return the square root of `number`, rounded to `precision` decimal places.
++
++    Negative numbers are rejected with a `422` validation error, since they have
++    no real square root.
++    """
++    return SqrtResponse(result=round(math.sqrt(body.number), body.precision), number=body.number)
+diff --git a/tests/test_main.py b/tests/test_main.py
+index dbb87a7..e14cf49 100644
+--- a/tests/test_main.py
++++ b/tests/test_main.py
+@@ -71,3 +71,18 @@ def test_v2_modulo_by_zero_is_400():
+ def test_v2_rejects_unknown_operation():
+     r = client.post("/v2/calculate", json={"operation": "logarithm", "operands": [1, 2]})
+     assert r.status_code == 422
++
++
++def test_v2_sqrt():
++    r = client.post("/v2/sqrt", json={"number": 144})
++    assert r.status_code == 200
++    assert r.json() == {"result": 12, "number": 144}
++
++
++def test_v2_sqrt_precision():
++    r = client.post("/v2/sqrt", json={"number": 2, "precision": 3})
++    assert r.json()["result"] == 1.414
++
++
++def test_v2_sqrt_rejects_negative():
++    assert client.post("/v2/sqrt", json={"number": -4}).status_code == 422
+-- 
+2.47.3
+

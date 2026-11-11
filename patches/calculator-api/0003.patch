@@ -1,0 +1,128 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DeweyMarco <marco@mintlify.com>
+Date: Tue, 27 Oct 2026 11:31:52 -0700
+Subject: [PATCH 3/3] chore(v1): mark v1 endpoints as deprecated
+
+All /v1/* endpoints are flagged deprecated in the OpenAPI spec with a
+removal date of 2027-01-31.
+---
+ main.py            | 51 +++++++++++++++++++++++++++++++++++++---------
+ tests/test_main.py |  7 +++++++
+ 2 files changed, 48 insertions(+), 10 deletions(-)
+
+diff --git a/main.py b/main.py
+index c6f7c12..2d9e975 100644
+--- a/main.py
++++ b/main.py
+@@ -135,17 +135,23 @@ DIVIDE_BY_ZERO = {400: {"model": ErrorResponse, "description": "Division (or mod
+ 
+ app = FastAPI(
+     title="Calculator API",
+-    version="2.0.0",
++    version="2.1.0",
+     summary="Add, subtract, multiply and divide over HTTP.",
+     description=(
+         "A small demo API for basic arithmetic.\n\n"
+-        "**v1** has one endpoint per operation and takes exactly two numbers. "
++        "**v1** (deprecated, removed on 2027-01-31) has one endpoint per operation and takes exactly two numbers. "
+         "**v2** adds `POST /v2/calculate`, which takes any operation (including `power` and `modulo`) and up to 20 numbers. "
+         "Both versions return a `400` error when you divide by zero."
+     ),
+     servers=[{"url": "http://localhost:8000", "description": "Local development"}],
+     openapi_tags=[
+-        {"name": "v1", "description": "Original endpoints: one operation each, two numbers."},
++        {
++            "name": "v1",
++            "description": (
++                "**Deprecated.** Original endpoints: one operation each, two numbers. "
++                "Use `POST /v2/calculate` instead. v1 will be removed on 2027-01-31."
++            ),
++        },
+         {"name": "v2", "description": "Newer endpoint: any operation, two or more numbers."},
+     ],
+ )
+@@ -155,34 +161,59 @@ app = FastAPI(
+ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+ 
+ 
+-@app.post("/v1/add", tags=["v1"], operation_id="v1Add", summary="Add two numbers", response_model=Result)
++@app.post(
++    "/v1/add",
++    tags=["v1"],
++    deprecated=True,
++    operation_id="v1Add",
++    summary="Add two numbers",
++    response_model=Result,
++)
+ def v1_add(body: Operands) -> Result:
+-    """Return `a + b`."""
++    """Return `a + b`. Deprecated: use `POST /v2/calculate` with `operation: add`."""
+     return Result(result=add(body.a, body.b))
+ 
+ 
+-@app.post("/v1/subtract", tags=["v1"], operation_id="v1Subtract", summary="Subtract two numbers", response_model=Result)
++@app.post(
++    "/v1/subtract",
++    tags=["v1"],
++    deprecated=True,
++    operation_id="v1Subtract",
++    summary="Subtract two numbers",
++    response_model=Result,
++)
+ def v1_subtract(body: Operands) -> Result:
+-    """Return `a - b`."""
++    """Return `a - b`. Deprecated: use `POST /v2/calculate` with `operation: subtract`."""
+     return Result(result=subtract(body.a, body.b))
+ 
+ 
+-@app.post("/v1/multiply", tags=["v1"], operation_id="v1Multiply", summary="Multiply two numbers", response_model=Result)
++@app.post(
++    "/v1/multiply",
++    tags=["v1"],
++    deprecated=True,
++    operation_id="v1Multiply",
++    summary="Multiply two numbers",
++    response_model=Result,
++)
+ def v1_multiply(body: Operands) -> Result:
+-    """Return `a * b`."""
++    """Return `a * b`. Deprecated: use `POST /v2/calculate` with `operation: multiply`."""
+     return Result(result=multiply(body.a, body.b))
+ 
+ 
+ @app.post(
+     "/v1/divide",
+     tags=["v1"],
++    deprecated=True,
+     operation_id="v1Divide",
+     summary="Divide two numbers",
+     response_model=Result,
+     responses=DIVIDE_BY_ZERO,
+ )
+ def v1_divide(body: Operands) -> Result:
+-    """Return `a / b`. Returns a `400` error if `b` is `0`."""
++    """Return `a / b`. Returns a `400` error if `b` is `0`.
++
++    Deprecated: use `POST /v2/calculate` with `operation: divide`.
++    """
+     return Result(result=safe_divide(body.a, body.b))
+ 
+ 
+diff --git a/tests/test_main.py b/tests/test_main.py
+index e14cf49..7301bc1 100644
+--- a/tests/test_main.py
++++ b/tests/test_main.py
+@@ -86,3 +86,10 @@ def test_v2_sqrt_precision():
+ 
+ def test_v2_sqrt_rejects_negative():
+     assert client.post("/v2/sqrt", json={"number": -4}).status_code == 422
++
++
++def test_v1_endpoints_are_marked_deprecated():
++    paths = app.openapi()["paths"]
++    for op in ["add", "subtract", "multiply", "divide"]:
++        assert paths[f"/v1/{op}"]["post"]["deprecated"] is True
++    assert "deprecated" not in paths["/v2/calculate"]["post"]
+-- 
+2.47.3
+

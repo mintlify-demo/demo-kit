@@ -1,0 +1,138 @@
+{
+  "org": "mintlify-demo",
+  "baseline_tag": "demo-baseline",
+  "backup_prefix": "demo-src/",
+  "reset_repos": [
+    "merge-sort-api",
+    "calculator-api",
+    "todo-api",
+    "text-utils-api"
+  ],
+  "prs": [
+    {
+      "repo": "merge-sort-api",
+      "order": 1,
+      "branch": "demo/1-quick-sort",
+      "backup_branch": "demo-src/1-quick-sort",
+      "base": "main",
+      "title": "Switch sorting from merge sort to quick sort",
+      "body": "Replaces the merge sort implementation with quick sort (middle-element pivot, three-way partition).\n\n- `POST /sort` now uses quick sort (O(n log n) average, O(n^2) worst case).\n- `POST /sort/steps` now returns **partition** steps (`pivot`, `before`, `equal`, `after`) instead of merge steps (`left`, `right`, `merged`). This is a breaking change to the response schema.\n- API renamed to **Sort API**, version 2.0.0.\n- Tests updated.\n\n---\n**Code only:** this PR changes `main.py` and tests, nothing else. All docs, including the OpenAPI reference, live in [`mintlify-demo/docs`](https://github.com/mintlify-demo/docs) under `merge-sort-api/`. Mintlify's *Update from code changes* automation picks up this change and opens the docs PR there.\n\n_Part of the mintlify-demo stack. Reset nightly to `demo-baseline`._",
+      "patch": "patches/merge-sort-api/0001.patch"
+    },
+    {
+      "repo": "merge-sort-api",
+      "order": 2,
+      "branch": "demo/2-algorithm-param",
+      "backup_branch": "demo-src/2-algorithm-param",
+      "base": "main",
+      "title": "Add algorithm parameter to /sort (quick, merge, heap)",
+      "body": "Adds an optional `algorithm` field to the sort request: `quick` (default), `merge` (stable), or `heap`.\n\n- The response echoes `algorithm`.\n- `/sort/steps` always uses quick sort.\n- Unknown algorithms return `422`.\n- Tests for every algorithm.\n\n---\n**Code only:** this PR changes `main.py` and tests, nothing else. All docs, including the OpenAPI reference, live in [`mintlify-demo/docs`](https://github.com/mintlify-demo/docs) under `merge-sort-api/`. Mintlify's *Update from code changes* automation picks up this change and opens the docs PR there.\n\n_Part of the mintlify-demo stack. Reset nightly to `demo-baseline`._",
+      "patch": "patches/merge-sort-api/0002.patch"
+    },
+    {
+      "repo": "merge-sort-api",
+      "order": 3,
+      "branch": "demo/3-sort-stats",
+      "backup_branch": "demo-src/3-sort-stats",
+      "base": "main",
+      "title": "Add POST /sort/stats to compare algorithm timings",
+      "body": "New endpoint `POST /sort/stats` sorts the same input with quick, merge, and heap sort and returns each timing (`elapsed_ms`), fastest first, plus `fastest`.\n\n- Tests added.\n\n---\n**Code only:** this PR changes `main.py` and tests, nothing else. All docs, including the OpenAPI reference, live in [`mintlify-demo/docs`](https://github.com/mintlify-demo/docs) under `merge-sort-api/`. Mintlify's *Update from code changes* automation picks up this change and opens the docs PR there.\n\n_Part of the mintlify-demo stack. Reset nightly to `demo-baseline`._",
+      "patch": "patches/merge-sort-api/0003.patch"
+    },
+    {
+      "repo": "calculator-api",
+      "order": 1,
+      "branch": "demo/1-power-modulo",
+      "backup_branch": "demo-src/1-power-modulo",
+      "base": "main",
+      "title": "Add power and modulo operations to /v2/calculate",
+      "body": "Adds two new operations to the v2 `operation` enum:\n\n- `power`: folds left to right, so `[2, 3, 2]` is `(2 ** 3) ** 2 = 64`.\n- `modulo`: remainder, so `[17, 5]` is `2`. Modulo by zero returns `400`.\n- Tests added.\n\n---\n**Code only:** this PR changes `main.py` and tests, nothing else. All docs, including the OpenAPI reference, live in [`mintlify-demo/docs`](https://github.com/mintlify-demo/docs) under `calculator-api/`. Mintlify's *Update from code changes* automation picks up this change and opens the docs PR there.\n\n_Part of the mintlify-demo stack. Reset nightly to `demo-baseline`._",
+      "patch": "patches/calculator-api/0001.patch"
+    },
+    {
+      "repo": "calculator-api",
+      "order": 2,
+      "branch": "demo/2-sqrt-endpoint",
+      "backup_branch": "demo-src/2-sqrt-endpoint",
+      "base": "main",
+      "title": "Add POST /v2/sqrt endpoint",
+      "body": "New endpoint `POST /v2/sqrt` returns the square root of `number`, rounded to `precision` decimal places (default 6, max 15).\n\n- Negative numbers are rejected with `422`.\n- Tests added.\n\n---\n**Code only:** this PR changes `main.py` and tests, nothing else. All docs, including the OpenAPI reference, live in [`mintlify-demo/docs`](https://github.com/mintlify-demo/docs) under `calculator-api/`. Mintlify's *Update from code changes* automation picks up this change and opens the docs PR there.\n\n_Part of the mintlify-demo stack. Reset nightly to `demo-baseline`._",
+      "patch": "patches/calculator-api/0002.patch"
+    },
+    {
+      "repo": "calculator-api",
+      "order": 3,
+      "branch": "demo/3-deprecate-v1",
+      "backup_branch": "demo-src/3-deprecate-v1",
+      "base": "main",
+      "title": "Deprecate the v1 endpoints",
+      "body": "Marks every `/v1/*` endpoint as `deprecated` in the OpenAPI spec, with a removal date of **2027-01-31**. Each endpoint points to the `POST /v2/calculate` equivalent.\n\n- Version bumped to 2.1.0.\n- Test asserts the deprecation flags.\n\n---\n**Code only:** this PR changes `main.py` and tests, nothing else. All docs, including the OpenAPI reference, live in [`mintlify-demo/docs`](https://github.com/mintlify-demo/docs) under `calculator-api/`. Mintlify's *Update from code changes* automation picks up this change and opens the docs PR there.\n\n_Part of the mintlify-demo stack. Reset nightly to `demo-baseline`._",
+      "patch": "patches/calculator-api/0003.patch"
+    },
+    {
+      "repo": "todo-api",
+      "order": 1,
+      "branch": "demo/1-priority",
+      "backup_branch": "demo-src/1-priority",
+      "base": "main",
+      "title": "Add priority to todos",
+      "body": "Adds a `priority` field (`low`, `medium`, `high`; default `medium`).\n\n- Accepted on create and update, returned on every todo.\n- New `priority` query filter on `GET /todos`.\n- Invalid values return `422`.\n- Tests added.\n\n---\n**Code only:** this PR changes `main.py` and tests, nothing else. All docs, including the OpenAPI reference, live in [`mintlify-demo/docs`](https://github.com/mintlify-demo/docs) under `todo-api/`. Mintlify's *Update from code changes* automation picks up this change and opens the docs PR there.\n\n_Part of the mintlify-demo stack. Reset nightly to `demo-baseline`._",
+      "patch": "patches/todo-api/0001.patch"
+    },
+    {
+      "repo": "todo-api",
+      "order": 2,
+      "branch": "demo/2-due-dates",
+      "backup_branch": "demo-src/2-due-dates",
+      "base": "main",
+      "title": "Add due dates and an overdue filter",
+      "body": "Adds an optional `due_date` (YYYY-MM-DD) to todos.\n\n- Accepted on create and update (send `null` to clear).\n- New `overdue=true` filter on `GET /todos` returns incomplete todos whose due date has passed.\n- Tests added.\n\n---\n**Code only:** this PR changes `main.py` and tests, nothing else. All docs, including the OpenAPI reference, live in [`mintlify-demo/docs`](https://github.com/mintlify-demo/docs) under `todo-api/`. Mintlify's *Update from code changes* automation picks up this change and opens the docs PR there.\n\n_Part of the mintlify-demo stack. Reset nightly to `demo-baseline`._",
+      "patch": "patches/todo-api/0002.patch"
+    },
+    {
+      "repo": "todo-api",
+      "order": 3,
+      "branch": "demo/3-complete-endpoint",
+      "backup_branch": "demo-src/3-complete-endpoint",
+      "base": "main",
+      "title": "Add POST /todos/{todo_id}/complete",
+      "body": "New endpoint that marks a todo done and records a new `completed_at` timestamp.\n\n- Idempotent: completing an already-completed todo keeps the original timestamp.\n- `404` for unknown ids.\n- Tests added.\n\n---\n**Code only:** this PR changes `main.py` and tests, nothing else. All docs, including the OpenAPI reference, live in [`mintlify-demo/docs`](https://github.com/mintlify-demo/docs) under `todo-api/`. Mintlify's *Update from code changes* automation picks up this change and opens the docs PR there.\n\n_Part of the mintlify-demo stack. Reset nightly to `demo-baseline`._",
+      "patch": "patches/todo-api/0003.patch"
+    },
+    {
+      "repo": "text-utils-api",
+      "order": 1,
+      "branch": "demo/1-slugify",
+      "backup_branch": "demo-src/1-slugify",
+      "base": "main",
+      "title": "Add POST /slugify",
+      "body": "New endpoint that turns text into a URL-friendly slug (`Héllo, Mintlify Docs!` -> `hello-mintlify-docs`).\n\n- Optional `separator` (`-` or `_`) and `max_length`.\n- Includes `x-codeSamples` in four languages like the other endpoints.\n- Tests added.\n\n---\n**Code only:** this PR changes `main.py` and tests, nothing else. All docs, including the OpenAPI reference, live in [`mintlify-demo/docs`](https://github.com/mintlify-demo/docs) under `text-utils-api/`. Mintlify's *Update from code changes* automation picks up this change and opens the docs PR there.\n\n_Part of the mintlify-demo stack. Reset nightly to `demo-baseline`._",
+      "patch": "patches/text-utils-api/0001.patch"
+    },
+    {
+      "repo": "text-utils-api",
+      "order": 2,
+      "branch": "demo/2-word-frequency",
+      "backup_branch": "demo-src/2-word-frequency",
+      "base": "main",
+      "title": "Add POST /word-frequency",
+      "body": "New endpoint that ranks the most common words and their counts.\n\n- Options: `top` (1 to 100, default 10) and `min_length`.\n- Case-insensitive; ties keep first-appearance order.\n- Includes `x-codeSamples`.\n- Tests added.\n\n---\n**Code only:** this PR changes `main.py` and tests, nothing else. All docs, including the OpenAPI reference, live in [`mintlify-demo/docs`](https://github.com/mintlify-demo/docs) under `text-utils-api/`. Mintlify's *Update from code changes* automation picks up this change and opens the docs PR there.\n\n_Part of the mintlify-demo stack. Reset nightly to `demo-baseline`._",
+      "patch": "patches/text-utils-api/0002.patch"
+    },
+    {
+      "repo": "text-utils-api",
+      "order": 3,
+      "branch": "demo/3-reading-time",
+      "backup_branch": "demo-src/3-reading-time",
+      "base": "main",
+      "title": "Add reading_time_minutes to /word-count",
+      "body": "`POST /word-count` now also returns `reading_time_minutes`, estimated at 200 words per minute and rounded up.\n\n- Tests updated.\n\n---\n**Code only:** this PR changes `main.py` and tests, nothing else. All docs, including the OpenAPI reference, live in [`mintlify-demo/docs`](https://github.com/mintlify-demo/docs) under `text-utils-api/`. Mintlify's *Update from code changes* automation picks up this change and opens the docs PR there.\n\n_Part of the mintlify-demo stack. Reset nightly to `demo-baseline`._",
+      "patch": "patches/text-utils-api/0003.patch"
+    }
+  ],
+  "docs_safe_repos": [
+    "docs"
+  ],
+  "docs_marker_tag": "demo-reset-last",
+  "bot_author_regex": "^(app/)?mintlify(\\[bot\\])?$|autopilot"
+}

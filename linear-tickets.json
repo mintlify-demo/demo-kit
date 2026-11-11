@@ -1,0 +1,103 @@
+{
+  "_readme": "Seed tickets for Mintlify's 'Update docs from tickets' automation. Create them in Linear (team key DEMO, or map ids) by hand or with the Linear API; nothing here is created automatically. Each ticket names the code repo and the files (code there, docs in mintlify-demo/docs under /<repo>/) so the agent has context; the same mapping is in each repo README under 'Ticket -> file map'. Suggested demo: move a ticket to Done after merging its code change, and Mintlify opens a docs PR.",
+  "team": "DEMO",
+  "project": "Mintlify demo APIs",
+  "tickets": [
+    {
+      "id": "DEMO-1",
+      "title": "Reject sort requests over 10,000 numbers with 413",
+      "repo": "mintlify-demo/merge-sort-api",
+      "files": [
+        "main.py (SortRequest, sort_numbers)",
+        "mintlify-demo/docs: merge-sort-api/guides/sorting-at-scale.mdx",
+        "mintlify-demo/docs: merge-sort-api/openapi.json"
+      ],
+      "labels": [
+        "api",
+        "limits"
+      ],
+      "priority": "High",
+      "description": "Large lists make `/sort/steps` responses several MB and slow the free instance down.\n\n**Change**\n- `POST /sort` and `POST /sort/steps` return `413 Payload Too Large` with `{\"detail\": \"At most 10000 numbers per request\"}` when `numbers` has more than 10,000 items.\n- Document the limit and the error in the API reference and in the Sorting at scale guide.\n\n**Acceptance**\n- Test for 10,000 (ok) and 10,001 (413)."
+    },
+    {
+      "id": "DEMO-2",
+      "title": "Send Sunset and Deprecation headers on every v1 calculator response",
+      "repo": "mintlify-demo/calculator-api",
+      "files": [
+        "main.py (the /v1/* routes)",
+        "mintlify-demo/docs: calculator-api/v1/overview.mdx",
+        "mintlify-demo/docs: calculator-api/guides/v1-vs-v2.mdx",
+        "mintlify-demo/docs: calculator-api/openapi.v1.json"
+      ],
+      "labels": [
+        "api",
+        "deprecation"
+      ],
+      "priority": "Medium",
+      "description": "v1 is being retired on 2027-01-31 (see the deprecate-v1 PR). Clients should learn that from the responses, not only from the docs.\n\n**Change**\n- Every `/v1/*` response includes `Deprecation: true` and `Sunset: Sun, 31 Jan 2027 00:00:00 GMT`, plus `Link: </v2/calculate>; rel=\"successor-version\"`.\n- Document the headers in the OpenAPI responses and in the v1 overview and v1 vs v2 guide, with a migration table.\n\n**Acceptance**\n- Tests assert the headers on all four v1 endpoints and their absence on v2."
+    },
+    {
+      "id": "DEMO-3",
+      "title": "Recurring todos",
+      "repo": "mintlify-demo/todo-api",
+      "files": [
+        "main.py (TodoCreate, Todo, create_todo, update_todo)",
+        "todo_graphql.py",
+        "mintlify-demo/docs: todo-api/guides/",
+        "mintlify-demo/docs: todo-api/openapi.json",
+        "mintlify-demo/docs: todo-api/schema.graphql"
+      ],
+      "labels": [
+        "feature"
+      ],
+      "priority": "Medium",
+      "description": "Customers want todos like \"Send the weekly report\" to come back after they're done.\n\n**Change**\n- New optional `repeat` field: `daily`, `weekly`, or `monthly` (default none).\n- Completing a repeating todo creates the next one with the same title and repeat, and the response includes `next_id`.\n- Expose `repeat` in GraphQL (`Todo.repeat`, `CreateTodoInput.repeat`).\n- New guide: Recurring todos.\n\n**Acceptance**\n- REST and GraphQL tests; `the docs PR` regenerated openapi.json and schema.graphql."
+    },
+    {
+      "id": "DEMO-4",
+      "title": "Rate limits per plan with X-RateLimit headers",
+      "repo": "mintlify-demo/todo-api",
+      "files": [
+        "main.py (require_api_key, key_tier)",
+        "mintlify-demo/docs: todo-api/guides/authentication.mdx",
+        "mintlify-demo/docs: todo-api/openapi.json"
+      ],
+      "labels": [
+        "api",
+        "plans"
+      ],
+      "priority": "High",
+      "description": "Plans should differ in more than bulk import.\n\n**Change**\n- Per-key limits per minute: standard 60, partner 300, enterprise 1,000.\n- Every response has `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`.\n- Over the limit: `429` with `Retry-After`.\n- Document limits in the Authentication guide (table per plan) and the 429 response on every endpoint.\n\n**Acceptance**\n- Tests for the headers and the 429 path (use a tiny limit via env var)."
+    },
+    {
+      "id": "DEMO-5",
+      "title": "Add a todo.completed event to the WebSocket stream",
+      "repo": "mintlify-demo/todo-api",
+      "files": [
+        "events.py (EVENT_TYPES, EventedStore)",
+        "mintlify-demo/docs: todo-api/asyncapi.yaml",
+        "mintlify-demo/docs: todo-api/events/overview.mdx"
+      ],
+      "labels": [
+        "events"
+      ],
+      "priority": "Low",
+      "description": "Partners only care when a todo is finished, and today they have to diff every `todo.updated`.\n\n**Change**\n- When `completed` flips from false to true, send `todo.completed` (same payload as `todo.updated`) in addition to `todo.updated`.\n- `subscribe` accepts `todo.completed`.\n- Add the message to the AsyncAPI spec and the event table in the Event stream page.\n\n**Acceptance**\n- WebSocket test; asyncapi.yaml lists the new message (the existing test checks EVENT_TYPES against it)."
+    },
+    {
+      "id": "DEMO-6",
+      "title": "Stop-word filtering for /word-count",
+      "repo": "mintlify-demo/text-utils-api",
+      "files": [
+        "main.py (count_words, TextRequest, WordCountResponse)",
+        "mintlify-demo/docs: text-utils-api/guides/examples.mdx",
+        "mintlify-demo/docs: text-utils-api/openapi.json"
+      ],
+      "labels": [
+        "feature"
+      ],
+      "priority": "Low",
+      "description": "Word counts are dominated by \"the\", \"a\", and \"and\".\n\n**Change**\n- Optional `ignore_stop_words` (bool, default false) on `POST /word-count`; when true, `unique_words` and the counts skip a built-in English stop-word list.\n- Response adds `stop_words_ignored` (int).\n- Update the x-codeSamples and the Examples guide.\n\n**Acceptance**\n- Tests for both modes; `the docs PR` regenerated."
+    }
+  ]
+}

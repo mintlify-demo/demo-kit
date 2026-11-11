@@ -1,0 +1,174 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DeweyMarco <marco@mintlify.com>
+Date: Tue, 27 Oct 2026 11:31:16 -0700
+Subject: [PATCH 2/3] feat: add algorithm parameter to /sort (quick, merge,
+ heap)
+
+New optional `algorithm` field on the request (default `quick`), echoed
+back in the response.
+---
+ main.py            | 61 ++++++++++++++++++++++++++++++++++++++++++----
+ tests/test_main.py | 26 ++++++++++++++++++--
+ 2 files changed, 80 insertions(+), 7 deletions(-)
+
+diff --git a/main.py b/main.py
+index a60409d..42d6e41 100644
+--- a/main.py
++++ b/main.py
+@@ -6,6 +6,7 @@ Two endpoints:
+ 
+ Run it:  uvicorn main:app --reload
+ """
++import heapq
+ from enum import Enum
+ 
+ from fastapi import FastAPI
+@@ -45,6 +46,34 @@ def quick_sort(numbers: list[float], descending: bool = False, steps: list | Non
+     return quick_sort(before, descending, steps) + equal + quick_sort(after, descending, steps)
+ 
+ 
++def merge_sort(numbers: list[float], descending: bool = False) -> list[float]:
++    """Sort with merge sort: split in half, sort each half, merge the halves. Stable."""
++    if len(numbers) <= 1:
++        return list(numbers)
++    middle = len(numbers) // 2
++    left = merge_sort(numbers[:middle], descending)
++    right = merge_sort(numbers[middle:], descending)
++    merged: list[float] = []
++    i = j = 0
++    while i < len(left) and j < len(right):
++        take_left = left[i] >= right[j] if descending else left[i] <= right[j]
++        if take_left:
++            merged.append(left[i])
++            i += 1
++        else:
++            merged.append(right[j])
++            j += 1
++    return merged + left[i:] + right[j:]
++
++
++def heap_sort(numbers: list[float], descending: bool = False) -> list[float]:
++    """Sort with heap sort: build a heap, then pop the top item until it is empty."""
++    heap = [-n for n in numbers] if descending else list(numbers)
++    heapq.heapify(heap)
++    out = [heapq.heappop(heap) for _ in range(len(heap))]
++    return [-n for n in out] if descending else out
++
++
+ # --------------------------------------------------------------------------- #
+ # Request / response models (these become the OpenAPI schemas in the docs)
+ # --------------------------------------------------------------------------- #
+@@ -55,6 +84,15 @@ class Order(str, Enum):
+     desc = "desc"
+ 
+ 
++class Algorithm(str, Enum):
++    quick = "quick"
++    merge = "merge"
++    heap = "heap"
++
++
++ALGORITHMS = {"quick": quick_sort, "merge": merge_sort, "heap": heap_sort}
++
++
+ class SortRequest(BaseModel):
+     numbers: list[float] = Field(
+         ...,
+@@ -67,12 +105,21 @@ class SortRequest(BaseModel):
+         description="Sort direction: `asc` (smallest first) or `desc` (largest first).",
+         examples=["asc"],
+     )
++    algorithm: Algorithm = Field(
++        Algorithm.quick,
++        description=(
++            "Which algorithm to use: `quick` (default), `merge` (stable), or `heap`. "
++            "`/sort/steps` always uses `quick`."
++        ),
++        examples=["quick"],
++    )
+ 
+ 
+ class SortResponse(BaseModel):
+     result: list[float] = Field(..., description="The sorted numbers.", examples=[[1, 2, 5, 5, 6, 9]])
+     count: int = Field(..., description="How many numbers were sorted.", examples=[6])
+     order: Order = Field(..., description="The direction that was used.", examples=["asc"])
++    algorithm: Algorithm = Field(..., description="The algorithm that was used.", examples=["quick"])
+ 
+ 
+ class PartitionStep(BaseModel):
+@@ -121,11 +168,13 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
+ def sort_numbers(body: SortRequest) -> SortResponse:
+     """Sort a list of numbers in ascending or descending order.
+ 
+-    Uses quick sort: O(n log n) on average, O(n^2) in the worst case. An empty
+-    list is valid and returns an empty list.
++    Pick the algorithm with `algorithm`: `quick` (default, O(n log n) on
++    average), `merge` (stable, always O(n log n)), or `heap` (O(n log n),
++    constant extra memory). An empty list is valid and returns an empty list.
+     """
+-    result = quick_sort(body.numbers, descending=body.order is Order.desc)
+-    return SortResponse(result=result, count=len(result), order=body.order)
++    sort = ALGORITHMS[body.algorithm.value]
++    result = sort(body.numbers, descending=body.order is Order.desc)
++    return SortResponse(result=result, count=len(result), order=body.order, algorithm=body.algorithm)
+ 
+ 
+ @app.post(
+@@ -144,4 +193,6 @@ def sort_numbers_with_steps(body: SortRequest) -> SortStepsResponse:
+     """
+     steps: list = []
+     result = quick_sort(body.numbers, descending=body.order is Order.desc, steps=steps)
+-    return SortStepsResponse(result=result, count=len(result), order=body.order, steps=steps)
++    return SortStepsResponse(
++        result=result, count=len(result), order=body.order, algorithm=Algorithm.quick, steps=steps
++    )
+diff --git a/tests/test_main.py b/tests/test_main.py
+index c09651b..b59f34a 100644
+--- a/tests/test_main.py
++++ b/tests/test_main.py
+@@ -1,6 +1,8 @@
+ from fastapi.testclient import TestClient
+ 
+-from main import app, quick_sort
++import pytest
++
++from main import app, heap_sort, merge_sort, quick_sort
+ 
+ client = TestClient(app)
+ 
+@@ -16,7 +18,7 @@ def test_quick_sort_function():
+ def test_sort_ascending_by_default():
+     r = client.post("/sort", json={"numbers": [5, 2, 9, 1, 5, 6]})
+     assert r.status_code == 200
+-    assert r.json() == {"result": [1, 2, 5, 5, 6, 9], "count": 6, "order": "asc"}
++    assert r.json() == {"result": [1, 2, 5, 5, 6, 9], "count": 6, "order": "asc", "algorithm": "quick"}
+ 
+ 
+ def test_sort_descending():
+@@ -58,3 +60,23 @@ def test_steps_show_each_partition():
+ def test_steps_for_single_item_is_empty():
+     r = client.post("/sort/steps", json={"numbers": [1]})
+     assert r.json()["steps"] == []
++
++
++@pytest.mark.parametrize("fn", [quick_sort, merge_sort, heap_sort])
++def test_every_algorithm_sorts(fn):
++    assert fn([5, 2, 9, 1, 5]) == [1, 2, 5, 5, 9]
++    assert fn([5, 2, 9, 1, 5], descending=True) == [9, 5, 5, 2, 1]
++    assert fn([]) == []
++
++
++@pytest.mark.parametrize("algorithm", ["quick", "merge", "heap"])
++def test_sort_with_algorithm(algorithm):
++    r = client.post("/sort", json={"numbers": [3, 1, 2], "algorithm": algorithm})
++    assert r.status_code == 200
++    assert r.json()["result"] == [1, 2, 3]
++    assert r.json()["algorithm"] == algorithm
++
++
++def test_unknown_algorithm_is_rejected():
++    r = client.post("/sort", json={"numbers": [1], "algorithm": "bogo"})
++    assert r.status_code == 422
+-- 
+2.47.3
+

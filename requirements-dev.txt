@@ -1,0 +1,9 @@
+# Local dev/test env for the 4 API repos (union of their requirements.txt) plus kit tooling.
+# reset.sh creates ../.venv from this file if it is missing (it does not need it to reset).
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30
+httpx>=0.27
+pytest>=8.0
+pyyaml>=6.0
+strawberry-graphql>=0.240
+pyflakes

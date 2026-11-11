@@ -1,0 +1,83 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DeweyMarco <marco@mintlify.com>
+Date: Tue, 27 Oct 2026 11:32:43 -0700
+Subject: [PATCH 3/3] feat: add POST /todos/{todo_id}/complete
+
+Marks a todo done and records a new `completed_at` timestamp; calling it
+again is a no-op.
+---
+ main.py            | 27 +++++++++++++++++++++++++++
+ tests/test_main.py | 15 +++++++++++++++
+ 2 files changed, 42 insertions(+)
+
+diff --git a/main.py b/main.py
+index 8eabc4e..52badc8 100644
+--- a/main.py
++++ b/main.py
+@@ -94,6 +94,11 @@ class TodoUpdate(BaseModel):
+ class Todo(TodoCreate):
+     id: int = Field(..., description="Unique id, assigned by the server.", examples=[1])
+     created_at: datetime = Field(..., description="When the todo was created (UTC).", examples=["2026-01-15T09:30:00Z"])
++    completed_at: datetime | None = Field(
++        None,
++        description="When the todo was completed with `POST /todos/{todo_id}/complete` (UTC). `null` until then.",
++        examples=["2026-01-16T17:05:00Z"],
++    )
+ 
+ 
+ class TodoPage(BaseModel):
+@@ -291,6 +296,28 @@ def update_todo(todo_id: int, body: TodoUpdate) -> Todo:
+     return updated
+ 
+ 
++@app.post(
++    "/todos/{todo_id}/complete",
++    tags=["Todos"],
++    operation_id="completeTodo",
++    summary="Mark a todo as complete",
++    response_model=Todo,
++    responses={**UNAUTHORIZED, **NOT_FOUND},
++)
++def complete_todo(todo_id: int) -> Todo:
++    """Mark a todo as done and record `completed_at`.
++
++    Safe to call more than once: completing a todo that is already complete
++    keeps its original `completed_at`.
++    """
++    todo = get_or_404(todo_id)
++    if todo.completed and todo.completed_at is not None:
++        return todo
++    updated = todo.model_copy(update={"completed": True, "completed_at": datetime.now(timezone.utc)})
++    todos[todo_id] = updated
++    return updated
++
++
+ @app.delete(
+     "/todos/{todo_id}",
+     tags=["Todos"],
+diff --git a/tests/test_main.py b/tests/test_main.py
+index 5eef677..aeed05f 100644
+--- a/tests/test_main.py
++++ b/tests/test_main.py
+@@ -125,3 +125,18 @@ def test_overdue_filter(client):
+ 
+ def test_invalid_due_date_is_rejected(client):
+     assert client.post("/todos", json={"title": "x", "due_date": "tomorrow"}).status_code == 422
++
++
++def test_complete_endpoint(client):
++    make(client)
++    assert client.get("/todos/1").json()["completed_at"] is None
++    r = client.post("/todos/1/complete")
++    assert r.status_code == 200
++    body = r.json()
++    assert body["completed"] is True and body["completed_at"] is not None
++    # Idempotent: a second call keeps the original timestamp.
++    assert client.post("/todos/1/complete").json()["completed_at"] == body["completed_at"]
++
++
++def test_complete_missing_is_404(client):
++    assert client.post("/todos/42/complete").status_code == 404
+-- 
+2.47.3
+

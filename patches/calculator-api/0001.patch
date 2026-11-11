@@ -1,0 +1,127 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DeweyMarco <marco@mintlify.com>
+Date: Tue, 27 Oct 2026 11:31:50 -0700
+Subject: [PATCH 1/3] feat(v2): add power and modulo operations to
+ /v2/calculate
+
+Both fold left to right like the other operations; modulo by zero returns
+400.
+---
+ main.py            | 31 ++++++++++++++++++++++++++++---
+ tests/test_main.py | 18 +++++++++++++++++-
+ 2 files changed, 45 insertions(+), 4 deletions(-)
+
+diff --git a/main.py b/main.py
+index d8d054a..102da21 100644
+--- a/main.py
++++ b/main.py
+@@ -37,6 +37,16 @@ def divide(a: float, b: float) -> float:
+     return a / b
+ 
+ 
++def power(a: float, b: float) -> float:
++    return a**b
++
++
++def modulo(a: float, b: float) -> float:
++    if b == 0:
++        raise ZeroDivisionError("Cannot take a remainder when dividing by zero")
++    return a % b
++
++
+ def safe_divide(a: float, b: float) -> float:
+     """Divide, but raise an HTTP 400 instead of crashing when b is zero."""
+     try:
+@@ -45,6 +55,14 @@ def safe_divide(a: float, b: float) -> float:
+         raise HTTPException(status_code=400, detail=str(exc)) from exc
+ 
+ 
++def safe_modulo(a: float, b: float) -> float:
++    """Remainder, but raise an HTTP 400 instead of crashing when b is zero."""
++    try:
++        return modulo(a, b)
++    except ZeroDivisionError as exc:
++        raise HTTPException(status_code=400, detail=str(exc)) from exc
++
++
+ # --------------------------------------------------------------------------- #
+ # Request / response models
+ # --------------------------------------------------------------------------- #
+@@ -66,6 +84,8 @@ class Operation(str, Enum):
+     subtract = "subtract"
+     multiply = "multiply"
+     divide = "divide"
++    power = "power"
++    modulo = "modulo"
+ 
+ 
+ class CalculateRequest(BaseModel):
+@@ -93,7 +113,7 @@ class ErrorResponse(BaseModel):
+     detail: str = Field(..., description="What went wrong.", examples=["Cannot divide by zero"])
+ 
+ 
+-DIVIDE_BY_ZERO = {400: {"model": ErrorResponse, "description": "Division by zero."}}
++DIVIDE_BY_ZERO = {400: {"model": ErrorResponse, "description": "Division (or modulo) by zero."}}
+ 
+ # --------------------------------------------------------------------------- #
+ # The app
+@@ -106,7 +126,7 @@ app = FastAPI(
+     description=(
+         "A small demo API for basic arithmetic.\n\n"
+         "**v1** has one endpoint per operation and takes exactly two numbers. "
+-        "**v2** adds `POST /v2/calculate`, which takes any operation and up to 20 numbers. "
++        "**v2** adds `POST /v2/calculate`, which takes any operation (including `power` and `modulo`) and up to 20 numbers. "
+         "Both versions return a `400` error when you divide by zero."
+     ),
+     servers=[{"url": "http://localhost:8000", "description": "Local development"}],
+@@ -163,13 +183,18 @@ def v1_divide(body: Operands) -> Result:
+ def v2_calculate(body: CalculateRequest) -> CalculateResponse:
+     """Apply one operation across two or more numbers, left to right.
+ 
+-    Division stops with a `400` error as soon as any divisor is `0`.
++    `power` raises each result to the next number, so `[2, 3, 2]` is
++    `(2 ** 3) ** 2 = 64`. `modulo` returns the remainder, so `[17, 5]` is `2`.
++
++    Division and modulo stop with a `400` error as soon as any divisor is `0`.
+     """
+     functions = {
+         Operation.add: add,
+         Operation.subtract: subtract,
+         Operation.multiply: multiply,
+         Operation.divide: safe_divide,
++        Operation.power: power,
++        Operation.modulo: safe_modulo,
+     }
+     fn = functions[body.operation]
+ 
+diff --git a/tests/test_main.py b/tests/test_main.py
+index 33dc3f3..dbb87a7 100644
+--- a/tests/test_main.py
++++ b/tests/test_main.py
+@@ -52,6 +52,22 @@ def test_v2_needs_two_operands():
+     assert r.status_code == 422
+ 
+ 
++def test_v2_power_folds_left_to_right():
++    r = client.post("/v2/calculate", json={"operation": "power", "operands": [2, 3, 2]})
++    assert r.status_code == 200
++    assert r.json()["result"] == 64
++
++
++def test_v2_modulo():
++    r = client.post("/v2/calculate", json={"operation": "modulo", "operands": [17, 5]})
++    assert r.json()["result"] == 2
++
++
++def test_v2_modulo_by_zero_is_400():
++    r = client.post("/v2/calculate", json={"operation": "modulo", "operands": [17, 0]})
++    assert r.status_code == 400
++
++
+ def test_v2_rejects_unknown_operation():
+-    r = client.post("/v2/calculate", json={"operation": "power", "operands": [1, 2]})
++    r = client.post("/v2/calculate", json={"operation": "logarithm", "operands": [1, 2]})
+     assert r.status_code == 422
+-- 
+2.47.3
+

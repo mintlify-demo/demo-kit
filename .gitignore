@@ -1,0 +1,6 @@
+logs/
+.venv/
+.bak/
+*.log
+__pycache__/
+.DS_Store
