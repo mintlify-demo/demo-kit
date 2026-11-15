@@ -57,6 +57,27 @@ docs_open=$(gh pr list --repo "$ORG/docs" --state open --limit 100 --json number
 if [ -n "$docs_open" ]; then bad "open PRs in docs:"$'\n'"$docs_open"
 else say "  none ok"; fi
 
+say "== docs restore sections (expect identical to their baseline tags)"
+while IFS=$'\t' read -r repo btag paths tabs; do
+  [ -z "$repo" ] && continue
+  changed=$(gh api "repos/$ORG/$repo/compare/$btag...main" --paginate --jq '.files[].filename' \
+    | jq -R -s --argjson p "$paths" 'split("\n") | map(select(. as $f | $p | any(. as $x | $f == $x or ($f | startswith($x + "/"))))) | .[]' -r)
+  if [ -n "$changed" ]; then bad "$repo files differ from $btag:"$'\n'"$changed"; else say "  $repo $(jq -r 'join(", ")' <<<"$paths") match $btag ok"; fi
+  b=$(gh api "repos/$ORG/$repo/contents/docs.json?ref=$btag" -H 'Accept: application/vnd.github.raw')
+  m=$(gh api "repos/$ORG/$repo/contents/docs.json?ref=main" -H 'Accept: application/vnd.github.raw')
+  q='[.navigation.languages[]? as $l | $l.tabs[] | select(.tab as $t | $names | index($t)) | {lang: $l.language, tab: .}]'
+  if [ "$(jq -c --argjson names "$tabs" "$q" <<<"$b")" = "$(jq -c --argjson names "$tabs" "$q" <<<"$m")" ]; then
+    say "  $repo nav tab(s) $(jq -r 'join(", ")' <<<"$tabs") match $btag ok"
+  else bad "$repo nav tab(s) $(jq -r 'join(", ")' <<<"$tabs") differ from $btag"; fi
+done < <(jq -r '.docs_restore[]? | [.repo, .baseline_tag, (.paths | tojson), ((.nav_tabs // []) | tojson)] | @tsv' "$MANIFEST")
+
+say "== public Acme Help Center pages (expect 200, no login redirect)"
+for p in "" getting-started plans-and-pricing free-trial shipping refunds contact-us password-help faq; do
+  read -r code final < <(curl -sS -L -o /dev/null -w '%{http_code} %{url_effective}\n' --max-time 30 "$SITE/acme/$p" || echo "curl-fail -")
+  if [ "$code" = 200 ] && [[ "$final" == "$SITE/acme"* ]]; then say "  /acme/$p $code ok"
+  else bad "/acme/$p returned $code ($final)"; fi
+done
+
 say "== site $SITE/"
 code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$SITE/" || echo curl-fail)
 if [ "$code" = 200 ]; then say "  $code ok"

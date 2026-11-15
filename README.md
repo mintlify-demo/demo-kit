@@ -8,7 +8,7 @@ Every demo PR is opened against `main` (`gh pr create --base main --head demo/<n
 - `patches/<repo>/000N.patch`: the same commits as a patch series on top of the `demo-baseline` tag (fallback).
 - Backup branches on GitHub: `demo-src/<n>-<slug>` in each API repo hold the exact demo commits. The reset never deletes them.
 - `reset.sh`: `./reset.sh --dry-run` to preview, `./reset.sh` for the full nightly reset, `./reset.sh --only-open` to just recreate missing demo branches and PRs. Needs gh, jq, git. Optionally creates `$KIT/.venv` from `requirements-dev.txt` (non-fatal; the reset itself doesn't use it). Skip that with `SKIP_VENV=1`.
-- `verify.sh`: checks API mains match `demo-baseline`, 12 open demo PRs all target `main`, no open PRs in `docs`, and https://mintlify-demo.mintlify.site/ returns 200. Exit 1 if anything is off. Used by the nightly workflow after `reset.sh`.
+- `verify.sh`: checks API mains (and acme-app) match `demo-baseline`, 12 open demo PRs all target `main`, no open PRs in `docs`, and https://mintlify-demo.mintlify.site/ returns 200. Exit 1 if anything is off. Used by the nightly workflow after `reset.sh`.
 - `logs/`: one log per run (not committed).
 
 ## Nightly reset (GitHub Actions)
@@ -27,6 +27,13 @@ To run the same reset locally: `./reset.sh --dry-run`, then `./reset.sh`, then `
 
 ## Docs repo (docs_safe_repos)
 The reset never force-pushes docs main. It closes open PRs from the Mintlify app or Autopilot (`bot_author_regex`) and deletes their branches; PRs by humans or other agents are left alone. Then it reverts Mintlify PRs merged since the `demo-reset-last` tag (falling back to `demo-baseline`) in one commit, "Demo reset: revert Mintlify automation docs updates", pushed as a fast-forward. A revert that conflicts is skipped with a WARNING and the script exits 3. Finally it moves `demo-reset-last` to docs main.
+
+## Acme Coffee Club (acme-app + the public Acme Help Center)
+- `acme-app` is in `reset_repos`: open PRs are closed and main is reset to its `demo-baseline` tag (the app with plain-English `acme/settings.py`). It has no demo PRs in the manifest; demos open their own one-line settings PRs.
+- The public `/acme` docs are reset by **Step 0b, docs restore** (`docs_restore` in `manifest.json`): `acme/`, `images/acme/` and the "Acme Help Center" nav tab in `docs.json` go back to the docs tag `acme-baseline` (docs #40) in one normal commit, "Demo reset: restore Acme Help Center baseline", pushed as a fast-forward. Pages added under `acme/` (for example a "change my email" page) are removed. The rest of `docs.json` (theme, styling, other tabs) is never touched.
+- `verify.sh` checks that those paths and the tab match `acme-baseline` and that every `/acme` page returns 200 without a login redirect.
+- To change the Acme baseline: merge the change to docs main, then move the annotated `acme-baseline` tag to the new commit (and `demo-baseline` in acme-app for code).
+- `reset.sh` starts with a no-change write-access probe per repo and logs a WARNING if `DEMO_RESET_TOKEN` can't push to one.
 
 To change the docs baseline: land the change on docs main with a normal push or a merged PR, then move both `demo-baseline` and `demo-reset-last` to the new main.
 

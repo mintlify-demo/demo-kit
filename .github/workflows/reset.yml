@@ -5,7 +5,7 @@
 # the cron if you want 11 PM year-round.
 #
 # Secret DEMO_RESET_TOKEN must be a PAT of an org member who can push to
-# mintlify-demo/{docs,merge-sort-api,calculator-api,todo-api,text-utils-api}:
+# mintlify-demo/{docs,merge-sort-api,calculator-api,todo-api,text-utils-api,acme-app}:
 #
 #   Classic PAT:
 #     - repo (covers public and private repositories: contents, PRs, tags)
@@ -13,7 +13,7 @@
 #
 #   Fine-grained PAT:
 #     - Resource owner: mintlify-demo
-#     - Repository access: All repositories (or at least the five named above)
+#     - Repository access: All repositories (or at least the six named above)
 #     - Permissions: Contents = Read and write, Pull requests = Read and write
 #       (Metadata = Read is included automatically)
 #     - Workflows / Actions are NOT required

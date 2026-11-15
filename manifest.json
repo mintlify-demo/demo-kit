@@ -6,7 +6,8 @@
     "merge-sort-api",
     "calculator-api",
     "todo-api",
-    "text-utils-api"
+    "text-utils-api",
+    "acme-app"
   ],
   "prs": [
     {
@@ -134,5 +135,18 @@
     "docs"
   ],
   "docs_marker_tag": "demo-reset-last",
-  "bot_author_regex": "^(app/)?mintlify(\\[bot\\])?$|autopilot"
+  "bot_author_regex": "^(app/)?mintlify(\\[bot\\])?$|autopilot",
+  "docs_restore": [
+    {
+      "repo": "docs",
+      "baseline_tag": "acme-baseline",
+      "paths": [
+        "acme",
+        "images/acme"
+      ],
+      "nav_tabs": [
+        "Acme Help Center"
+      ]
+    }
+  ]
 }

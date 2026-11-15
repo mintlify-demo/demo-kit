@@ -10,6 +10,8 @@
 # docs_safe_repos (docs):  main is NEVER force-pushed. Open PRs by the Mintlify app/Autopilot
 #   are closed; bot PRs merged since the demo-reset-last tag are reverted in one commit
 #   (conflicting reverts are skipped with a WARNING). Exit code 3 = finished with warnings.
+# docs_restore (docs):     whole sections (paths + nav tabs) go back to their own baseline tag
+#   (e.g. acme-baseline for the public Acme Help Center) in one normal commit. No force-push.
 #
 # Safe to run repeatedly. Needs: gh (authed with repo scope), jq, git.
 # Demo PRs are opened against main (not stacked). Each demo/* branch already contains the
@@ -25,7 +27,7 @@ for a in "$@"; do
   case "$a" in
     --dry-run) DRY=1 ;;
     --only-open) ONLY_OPEN=1 ;;
-    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "unknown flag: $a" >&2; exit 2 ;;
   esac
 done
@@ -103,6 +105,17 @@ rebuild_backups_from_patches() {
   )
   rm -rf "$tmp"
 }
+
+# Push-access preflight (no changes): creating a ref at an all-zero sha fails with 422 when the
+# token can write to the repo and 403/404 when it can't.
+log "== Preflight: token write access"
+for repo in "${REPOS[@]}" $(jq -r '.docs_safe_repos[]?, .docs_restore[]?.repo' "$MANIFEST" | sort -u); do
+  if out=$(gh api -X POST "repos/$ORG/$repo/git/refs" -f ref="refs/heads/demo-reset-access-probe" \
+        -f sha=0000000000000000000000000000000000000000 2>&1); then
+    log "  $repo: unexpected success creating probe ref"
+  elif grep -q 'HTTP 422' <<<"$out"; then log "  $repo: write access ok"
+  else log "  WARNING: $repo: token cannot write ($(grep -o 'HTTP [0-9]*' <<<"$out" | head -1)); the reset will fail for this repo"; fi
+done
 
 declare -A BASELINE
 for repo in "${REPOS[@]}"; do BASELINE[$repo]=$(tag_commit "$repo"); log "$repo: $TAG = ${BASELINE[$repo]:0:7}"; done
@@ -195,6 +208,76 @@ if [ $ONLY_OPEN = 0 ]; then
     BASELINE[$repo]=$(tag_commit "$repo")
     docs_safe_reset "$repo"
   done
+fi
+
+# ---- 0b. Docs restore: put whole docs sections (e.g. the public Acme Help Center) back to a
+# baseline tag with one normal commit. Never force-pushes. Configured by docs_restore in the
+# manifest: repo, baseline_tag, paths (restored exactly; extra files removed), nav_tabs (tabs in
+# docs.json replaced by the baseline's copy; the rest of docs.json is left untouched).
+docs_restore_baseline() {
+  local repo=$1 btag=$2 paths_json=$3 tabs_json=$4 tmp bsha head_sha p
+  bsha=$(ref_sha "$repo" "tags/$btag")
+  if [ -z "$bsha" ]; then warn "$repo: tag $btag not found; skipping docs restore"; return; fi
+  log "$repo: restore $(jq -r 'join(", ")' <<<"$paths_json") + nav tabs $(jq -r 'join(", ")' <<<"$tabs_json") to $btag"
+  tmp=$(mktemp -d)
+  git clone -q "https://github.com/$ORG/$repo.git" "$tmp/$repo"
+  cd "$tmp/$repo"
+  git config user.name "$GIT_NAME"; git config user.email "$GIT_EMAIL"
+  git fetch -q origin "refs/tags/$btag:refs/tags/$btag"
+  while read -r p; do
+    [ -z "$p" ] && continue
+    git rm -r -q --ignore-unmatch -- "$p"
+    if git cat-file -e "$btag^{commit}:$p" 2>/dev/null; then git checkout -q "$btag" -- "$p"; fi
+  done < <(jq -r '.[]' <<<"$paths_json")
+  git show "$btag:docs.json" > "$tmp/docs.baseline.json"
+  TABS="$tabs_json" python3 - "$tmp/docs.baseline.json" docs.json <<'PY'
+import json, os, sys
+base = json.load(open(sys.argv[1])); path = sys.argv[2]
+raw = open(path).read(); cur = json.loads(raw)
+names = json.loads(os.environ["TABS"])
+def langs(d):
+    nav = d.get("navigation", {})
+    return {l.get("language"): l.get("tabs", []) for l in nav.get("languages", [])} if "languages" in nav else {None: nav.get("tabs", [])}
+btabs, ctabs = langs(base), langs(cur)
+for lang, bt in btabs.items():
+    ct = ctabs.get(lang)
+    if ct is None: continue
+    for i, tab in enumerate(bt):
+        if tab.get("tab") not in names: continue
+        j = next((k for k, t in enumerate(ct) if t.get("tab") == tab["tab"]), None)
+        if j is None: ct.insert(min(i, len(ct)), tab)
+        else: ct[j] = tab
+for lang, ct in ctabs.items():  # tabs with these names that the baseline doesn't have
+    bnames = {t.get("tab") for t in btabs.get(lang, [])}
+    ct[:] = [t for t in ct if t.get("tab") not in names or t.get("tab") in bnames]
+out = json.dumps(cur, indent=2, ensure_ascii=False) + "\n"
+if json.loads(out) != json.loads(raw): open(path, "w").write(out)
+PY
+  git add -A
+  if git diff --cached --quiet; then
+    log "  already at $btag; nothing to restore"
+    cd "$KIT"; rm -rf "$tmp"; return
+  fi
+  git diff --cached --stat | sed 's/^/  /'
+  git commit -q -m "Demo reset: restore $(jq -r 'join(", ")' <<<"$tabs_json") baseline" \
+    -m "Restored $(jq -r 'join(", ")' <<<"$paths_json") and the nav tab(s) from tag $btag."
+  if [ $DRY = 1 ]; then echo "  DRY-RUN: git push origin HEAD:main (fast-forward, no force)"; cd "$KIT"; rm -rf "$tmp"; return
+  elif git push -q origin HEAD:main; then log "  pushed restore commit $(git rev-parse --short HEAD) to $repo main"
+  else warn "$repo: push of restore commit rejected (main moved?); not forced, rerun reset"; cd "$KIT"; rm -rf "$tmp"; return; fi
+  head_sha=$(git rev-parse HEAD)
+  cd "$KIT"; rm -rf "$tmp"
+  if [ -n "$(ref_sha "$repo" "tags/$MARKER")" ]; then
+    log "  move tag $MARKER -> ${head_sha:0:7}"
+    run api -X PATCH "repos/$ORG/$repo/git/refs/tags/$MARKER" -f sha="$head_sha" -F force=true --silent
+  fi
+}
+
+if [ $ONLY_OPEN = 0 ]; then
+  log "== Step 0b: docs restore"
+  while IFS=$'\t' read -r repo btag paths tabs; do
+    [ -z "$repo" ] && continue
+    docs_restore_baseline "$repo" "$btag" "$paths" "$tabs"
+  done < <(jq -r '.docs_restore[]? | [.repo, .baseline_tag, (.paths | tojson), ((.nav_tabs // []) | tojson)] | @tsv' "$MANIFEST")
 fi
 
 if [ $ONLY_OPEN = 0 ]; then
