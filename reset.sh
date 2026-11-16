@@ -167,8 +167,20 @@ docs_safe_reset() {
     | while IFS=$'\t' read -r sha num title; do grep -qx "$sha" <<<"$inrange" && printf '%s\t%s\t%s\n' "$sha" "$num" "$title"; done)
   n=${#TO_REVERT[@]}
   log "  $n merged bot PR(s) to revert"
+  # Paths this repo restores wholesale in step 0b (docs_restore). A bot PR that only touches those
+  # paths is left to step 0b: one restore commit then resets English and its translations
+  # together, so the Translate automation never sees a half-reset state.
+  local restore_re
+  restore_re=$(jq -r --arg r "$repo" '[.docs_restore[]? | select(.repo == $r) | .paths[]
+                 | gsub("[.]"; "\\.") | "^" + . + "(/|$)"] | join("|")' "$MANIFEST")
   for line in "${TO_REVERT[@]}"; do
     IFS=$'\t' read -r sha num title <<<"$line"
+    if [ -n "$restore_re" ]; then
+      files=$(git diff-tree --no-commit-id --name-only -r -m --first-parent "$sha" | sort -u)
+      if [ -n "$files" ] && ! grep -Evq "$restore_re" <<<"$files"; then
+        log "  skip #$num (${sha:0:7}) $title: only restored paths, step 0b resets them"; continue
+      fi
+    fi
     parents=$(git rev-list --parents -n1 "$sha" | wc -w)
     mflag=(); [ "$parents" -gt 2 ] && mflag=(-m 1)
     if git revert --no-edit "${mflag[@]}" "$sha" >/dev/null 2>&1; then

@@ -142,10 +142,14 @@
       "baseline_tag": "acme-baseline",
       "paths": [
         "acme",
-        "images/acme"
+        "images/acme",
+        "es/acme",
+        "fr/acme"
       ],
       "nav_tabs": [
-        "Acme Help Center"
+        "Acme Help Center",
+        "Centro de ayuda de Acme",
+        "Centre d'aide Acme"
       ]
     }
   ]

@@ -78,6 +78,20 @@ for p in "" getting-started plans-and-pricing free-trial shipping refunds contac
   else bad "/acme/$p returned $code ($final)"; fi
 done
 
+say "== Spanish and French Acme pages (expect 200, no login redirect)"
+for lang in es fr; do
+  for p in "" plans-and-pricing refunds faq; do
+    read -r code final < <(curl -sS -L -o /dev/null -w '%{http_code} %{url_effective}\n' --max-time 30 "$SITE/$lang/acme/$p" || echo "curl-fail -")
+    if [ "$code" = 200 ] && [[ "$final" == "$SITE/$lang/acme"* ]]; then say "  /$lang/acme/$p $code ok"
+    else bad "/$lang/acme/$p returned $code ($final)"; fi
+  done
+done
+
+say "== Acme staff handbook (expect a login redirect for signed-out readers)"
+loc=$(curl -sS -o /dev/null -w '%{redirect_url}' --max-time 30 "$SITE/acme/staff-handbook" || echo curl-fail)
+if [[ "$loc" == *"/login"* ]]; then say "  /acme/staff-handbook -> login ok"
+else bad "/acme/staff-handbook did not redirect to login ($loc)"; fi
+
 say "== site $SITE/"
 code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$SITE/" || echo curl-fail)
 if [ "$code" = 200 ]; then say "  $code ok"
