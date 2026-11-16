@@ -60,8 +60,17 @@ else say "  none ok"; fi
 say "== docs restore sections (expect identical to their baseline tags)"
 while IFS=$'\t' read -r repo btag paths tabs; do
   [ -z "$repo" ] && continue
-  changed=$(gh api "repos/$ORG/$repo/compare/$btag...main" --paginate --jq '.files[].filename' \
-    | jq -R -s --argjson p "$paths" 'split("\n") | map(select(. as $f | $p | any(. as $x | $f == $x or ($f | startswith($x + "/"))))) | .[]' -r)
+  # Compare file blobs in the two trees directly. A three-dot compare (tag...main) diffs from the
+  # merge base, so it falsely reports files when the baseline tag is not an ancestor of main.
+  tree_files() { # repo ref -> "path<TAB>blobsha" for the restored paths
+    local t; t=$(gh api "repos/$ORG/$1/git/trees/$2?recursive=1")
+    if [ "$(jq -r .truncated <<<"$t")" = true ]; then echo "TRUNCATED"; return; fi
+    jq -r --argjson p "$paths" '.tree[] | select(.type == "blob") | select(.path as $f | $p | any(. as $x | $f == $x or ($f | startswith($x + "/")))) | "\(.path)\t\(.sha)"' <<<"$t" | sort
+  }
+  bfiles=$(tree_files "$repo" "$(gh api "repos/$ORG/$repo/commits/$btag" --jq .sha)")
+  mfiles=$(tree_files "$repo" "$(gh api "repos/$ORG/$repo/commits/main" --jq .sha)")
+  if [ "$bfiles" = TRUNCATED ] || [ "$mfiles" = TRUNCATED ]; then changed="(tree listing truncated; cannot compare)"
+  else changed=$(diff <(echo "$bfiles") <(echo "$mfiles") | sed -n 's/^[<>] \([^\t]*\)\t.*/\1/p' | sort -u || true); fi
   if [ -n "$changed" ]; then bad "$repo files differ from $btag:"$'\n'"$changed"; else say "  $repo $(jq -r 'join(", ")' <<<"$paths") match $btag ok"; fi
   b=$(gh api "repos/$ORG/$repo/contents/docs.json?ref=$btag" -H 'Accept: application/vnd.github.raw')
   m=$(gh api "repos/$ORG/$repo/contents/docs.json?ref=main" -H 'Accept: application/vnd.github.raw')
