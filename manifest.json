@@ -144,7 +144,8 @@
         "acme",
         "images/acme",
         "es/acme",
-        "fr/acme"
+        "fr/acme",
+        "playbook"
       ],
       "nav_tabs": [
         "Acme Help Center",

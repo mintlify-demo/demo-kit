@@ -1,0 +1,8 @@
+Escalation process v2
+Owner: Acme support lead · Status: Approved · Effective: December 1
+Why we're changing it
+Urgent tickets waited too long for a second pair of eyes, and weekend tickets sat untouched until Monday morning.
+What changes
+Urgent tickets: escalate after 1 hour (was 4 hours).
+Escalations go to the on-call agent in #support-escalations first. The on-call agent loops in the support lead only if they can't solve it.
+New weekend on-call: one agent covers Saturday and Sunday, 10am to 4pm Pacific, rotating weekly.

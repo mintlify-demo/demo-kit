@@ -101,6 +101,13 @@ loc=$(curl -sS -o /dev/null -w '%{redirect_url}' --max-time 30 "$SITE/acme/staff
 if [[ "$loc" == *"/login"* ]]; then say "  /acme/staff-handbook -> login ok"
 else bad "/acme/staff-handbook did not redirect to login ($loc)"; fi
 
+say "== Acme Support Playbook (internal; expect a login redirect for signed-out readers)"
+for p in index escalation-process refund-approvals hours-and-on-call; do
+  loc=$(curl -sS -o /dev/null -w '%{redirect_url}' --max-time 30 "$SITE/playbook/$p" || echo curl-fail)
+  if [[ "$loc" == *"/login"* ]]; then say "  /playbook/$p -> login ok"
+  else bad "/playbook/$p did not redirect to login ($loc)"; fi
+done
+
 say "== site $SITE/"
 code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$SITE/" || echo curl-fail)
 if [ "$code" = 200 ]; then say "  $code ok"

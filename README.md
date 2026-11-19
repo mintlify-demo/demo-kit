@@ -48,6 +48,9 @@ To change the docs baseline: land the change on docs main with a normal push or 
 
 TODO(hosting): the APIs aren't hosted; the OpenAPI `servers` are `http://localhost:8000` only. When a host exists, add it first in `servers=[...]` in each `main.py` (and `url` in text-utils-api's `code_samples`, `DEFAULT_BASE_URL` in todo-api `sdk/todo_client/client.py`), then update `servers` in the docs repo's `<repo>/openapi*.json` and `todo-api/asyncapi.yaml` (regenerate with `app.openapi()` from the code) and follow the steps above.
 
+## Context-driven demos (Jira / Google Doc to help center and internal playbook)
+See `scenarios/RUNBOOK.md`. The internal Acme Support Playbook lives at `playbook/` in the docs repo (no `public: true`, so it needs the docs login) and is restored nightly from `acme-baseline` with the Acme Help Center (manifest `docs_restore` paths include `playbook`). Baseline text for the two demo Google Docs is in `scenarios/*-doc-baseline.txt`.
+
 ## Other files
 - `linear-tickets.json`: six seed tickets (DEMO-1 to DEMO-6) for the *Update docs from tickets* automation. Each names the code repo and files (code there, docs in `mintlify-demo/docs` under `<repo>/`). Each API repo README has a matching "Ticket -> file map". Nothing is created in Linear.
 - `auth0-post-login-action.js`: the Auth0 Action for personalization without a hosted Info API (Mintlify Info API URL = Auth0 `/userinfo`). See `mintlify-demo/demo-info-api` README. It also passes `app_metadata.acmePlan` and `acmeRole` through as `content.acmePlan` / `content.acmeRole` for the Acme demo users Jane (Pro) and Sam (staff).
