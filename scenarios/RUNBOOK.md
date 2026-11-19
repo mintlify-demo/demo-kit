@@ -7,10 +7,18 @@ Everything here resets nightly at 11 PM Pacific (see "Reset" at the bottom).
 
 | # | Story | Source (what you edit live) | Docs page that changes | Trigger |
 |---|---|---|---|---|
-| 1 | External context → public help center | Jira issue in project **DD** (mintlify-demo-ae) *or* Google Doc "Acme – Refund policy update (demo)" | [/acme/refunds](https://docs.marcodewey.com/acme/refunds) (public) | Jira: automatic on issue create. Doc: one click on **Run** |
-| 2 | Non-code process change → internal KB | Google Doc "Acme Support – Escalation process v2 (demo)" *or* a Jira issue in DD | [/playbook/escalation-process](https://docs.marcodewey.com/playbook/escalation-process) + [/playbook/hours-and-on-call](https://docs.marcodewey.com/playbook/hours-and-on-call) (login required) | Doc: one click on **Run** (or ask the agent). Jira: automatic |
+| 1 | External context → public help center | Jira issue in project **DD** (mintlify-demo-ae) or Google Doc "Acme – Refund policy update (demo)" | [/acme/refunds](https://docs.marcodewey.com/acme/refunds) (public) | Jira: automatic on issue create. Doc: one click on **Run** |
+| 2 | Non-code process change → internal KB | Google Doc "Acme Support – Escalation process v2 (demo)" or a Jira issue in DD | [/playbook/escalation-process](https://docs.marcodewey.com/playbook/escalation-process) + [/playbook/hours-and-on-call](https://docs.marcodewey.com/playbook/hours-and-on-call) (login required) | Doc: one click on **Run** (or ask the agent). Jira: automatic |
 
 Each run takes about 1–2 minutes and opens a pull request in `mintlify-demo/docs` with a preview link. The PR description quotes the exact line of the source each change came from, which is the best thing to show a prospect.
+
+Links:
+- This runbook as a Google Doc: https://docs.google.com/document/d/1mCaTLmJknq226McBIvRenoOcCijY7AnhUohjEz9Up_g/edit
+- Google Doc (scenario 2): [Acme Support – Escalation process v2 (demo)](https://docs.google.com/document/d/1JqFJIbuC5zJ_eU0OEZa6fAX5fGnAolyaXXop9KkYcQc/edit)
+- Google Doc (scenario 1, Doc version): [Acme – Refund policy update (demo)](https://docs.google.com/document/d/19IgTBcvSdV7-kFL_lfhy8t5WnCHZS7QEdEyxuVArwIE/edit)
+- Jira project DD: https://mintlify-demo-ae.atlassian.net/jira/software/projects/DD/boards
+- Docs PRs: https://github.com/mintlify-demo/docs/pulls
+- Workflows: "Update docs from Jira issues", "Update help center from Google Doc (demo)", "Update support playbook from Google Doc (demo)"
 
 Before the call (2 min):
 1. Open these tabs: the source (Jira DD board or the Google Doc), the docs page that will change, Mintlify dashboard → **Workflows**, and GitHub PRs for `mintlify-demo/docs`.
